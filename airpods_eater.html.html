@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AirPod Chomper</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Fredoka', sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    body {
+        margin: 0;
+        overflow: hidden;
+        touch-action: none;
+    }
+    
+    .mouth-open {
+        transform: scaleY(1);
+        transition: transform 0.08s ease-out;
+    }
+    
+    .mouth-closed {
+        transform: scaleY(0.3);
+        transition: transform 0.08s ease-out;
+    }
+    
+    .float-up {
+        animation: floatUp 1s ease-out forwards;
+    }
+    
+    @keyframes floatUp {
+        0% { transform: translateY(0) scale(1); opacity: 1; }
+        100% { transform: translateY(-60px) scale(1.5); opacity: 0; }
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+    
+    .shake {
+        animation: shake 0.3s ease-in-out;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .spin {
+        animation: spin 2s linear infinite;
+    }
+    
+    .glow {
+        filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+    }
+    
+    canvas {
+        display: block;
+    }
+</style>
+</head>
+<body class="bg-gradient-to-b from-sky-300 via-sky-200 to-blue-300">
+    <div id="gameContainer" class="relative w-full h-screen overflow-hidden">
+        <!-- HUD -->
+        <div class="absolute top-0 left-0 right-0 z-40 p-3 md:p-4">
+            <div class="max-w-6xl mx-auto">
+                <div class="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-3 md:p-4 border-4 border-white/50">
+                    <div class="flex justify-between items-center gap-2 md:gap-4">
+                        <div class="flex-1">
+                            <div class="text-xs md:text-sm text-gray-500 font-semibold">SCORE</div>
+                            <div id="score" class="text-2xl md:text-4xl font-bold text-blue-600">0</div>
+                        </div>
+                        <div class="flex-1 text-center">
+                            <div class="text-xs md:text-sm text-gray-500 font-semibold">MISSED</div>
+                            <div id="lives" class="flex justify-center gap-1 md:gap-2 mt-1">
+                                <span class="text-2xl md:text-3xl">❌</span>
+                                <span class="text-2xl md:text-3xl">❌</span>
+                                <span class="text-2xl md:text-3xl">❌</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 text-right">
+                            <div class="text-xs md:text-sm text-gray-500 font-semibold">LEVEL</div>
+                            <div id="level" class="text-2xl md:text-4xl font-bold text-purple-600">1</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="absolute inset-0 z-50 flex items-center justify-center bg-gradient-to-b from-blue-400/95 to-purple-500/95 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl shadow-2xl p-6 md:p-10 max-w-md mx-4 border-8 border-white/50 transform scale-100">
+                <div class="text-center">
+                    <div class="text-6xl md:text-8xl mb-4">😋</div>
+                    <h1 class="text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                        AirPod Chomper
+                    </h1>
+                    <p class="text-gray-600 mb-6 text-sm md:text-base">Catch the falling AirPods before they hit the ground!</p>
+                    
+                    <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 mb-6 text-left space-y-2 text-xs md:text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🎧</span>
+                            <span class="font-medium">Regular AirPod: +1 point</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl glow">✨</span>
+                            <span class="font-medium">Golden AirPod: +10 points</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">📦</span>
+                            <span class="font-medium">Case: Clears all AirPods</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🟡</span>
+                            <span class="font-medium">Wax Buildup: Slows you down!</span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-xs md:text-sm text-gray-500 mb-4">
+                        <p>🖱️ Use arrow keys or A/D</p>
+                        <p>📱 Touch and drag on mobile</p>
+                    </div>
+                    
+                    <button id="startBtn" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transform hover:scale-105 transition-all duration-200 text-lg md:text-xl">
+                        START GAME
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="absolute inset-0 z-50 flex items-center justify-center bg-gradient-to-b from-red-400/95 to-orange-500/95 backdrop-blur-sm hidden">
+            <div class="bg-white rounded-3xl shadow-2xl p-6 md:p-10 max-w-md mx-4 border-8 border-white/50">
+                <div class="text-center">
+                    <div class="text-6xl md:text-8xl mb-4">😵</div>
+                    <h2 class="text-3xl md:text-5xl font-bold text-red-600 mb-2">
+                        NOISE CANCELLATION FAILED
+                    </h2>
+                    <p class="text-gray-600 mb-6">You missed 3 AirPods!</p>
+                    
+                    <div class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 mb-6">
+                        <div class="text-sm text-gray-500 font-semibold mb-1">FINAL SCORE</div>
+                        <div id="finalScore" class="text-5xl md:text-6xl font-bold text-orange-600">0</div>
+                        <div class="text-sm text-gray-500 font-semibold mt-3 mb-1">LEVEL REACHED</div>
+                        <div id="finalLevel" class="text-3xl md:text-4xl font-bold text-purple-600">1</div>
+                    </div>
+                    
+                    <button id="restartBtn" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transform hover:scale-105 transition-all duration-200 text-lg md:text-xl">
+                        PLAY AGAIN
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Power-up Indicator -->
+        <div id="waxIndicator" class="absolute top-24 md:top-28 left-1/2 transform -translate-x-1/2 z-30 hidden">
+            <div class="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-full font-bold shadow-lg animate-pulse text-sm md:text-base border-4 border-yellow-300">
+                🟡 WAX BUILDUP - SLOWED!
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="gameCanvas" class="absolute inset-0"></canvas>
+
+        <!-- Mouth Player -->
+        <div id="player" class="absolute bottom-8 z-30 pointer-events-none" style="left: 50%; transform: translateX(-50%);">
+            <svg width="100" height="80" viewBox="0 0 100 80" class="drop-shadow-2xl md:w-[140px] md:h-[100px]">
+                <defs>
+                    <radialGradient id="faceGradient">
+                        <stop offset="0%" style="stop-color:#FFE5B4;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#FFDBAC;stop-opacity:1" />
+                    </radialGradient>
+                </defs>
+                <!-- Face -->
+                <ellipse cx="50" cy="40" rx="45" ry="38" fill="url(#faceGradient)" stroke="#E8BE9C" stroke-width="2"/>
+                <!-- Eyes -->
+                <circle cx="35" cy="30" r="4" fill="#2C3E50"/>
+                <circle cx="65" cy="30" r="4" fill="#2C3E50"/>
+                <circle cx="36" cy="29" r="1.5" fill="white"/>
+                <circle cx="66" cy="29" r="1.5" fill="white"/>
+                <!-- Mouth -->
+                <g id="mouth" class="mouth-open">
+                    <ellipse cx="50" cy="52" rx="20" ry="14" fill="#8B0000"/>
+                    <ellipse cx="50" cy="50" rx="18" ry="12" fill="#4A0000"/>
+                    <!-- Teeth -->
+                    <rect x="38" y="45" width="6" height="5" fill="white" rx="1"/>
+                    <rect x="45" y="45" width="6" height="5" fill="white" rx="1"/>
+                    <rect x="52" y="45" width="6" height="5" fill="white" rx="1"/>
+                    <rect x="40" y="57" width="6" height="3" fill="white" rx="1"/>
+                    <rect x="47" y="57" width="6" height="3" fill="white" rx="1"/>
+                    <rect x="54" y="57" width="6" height="3" fill="white" rx="1"/>
+                </g>
+            </svg>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div id="mobileControls" class="absolute bottom-4 left-0 right-0 z-40 px-4 md:hidden">
+            <div class="flex justify-between gap-4">
+                <button id="leftBtn" class="flex-1 bg-white/80 backdrop-blur-md active:bg-white text-3xl font-bold py-6 rounded-2xl shadow-lg border-4 border-white/50">
+                    ←
+                </button>
+                <button id="rightBtn" class="flex-1 bg-white/80 backdrop-blur-md active:bg-white text-3xl font-bold py-6 rounded-2xl shadow-lg border-4 border-white/50">
+                    →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        const game = {
+            canvas: null,
+            ctx: null,
+            running: false,
+            score: 0,
+            lives: 3,
+            level: 1,
+            playerX: 0,
+            playerSpeed: 8,
+            basePlayerSpeed: 8,
+            items: [],
+            particles: [],
+            lastSpawn: 0,
+            spawnRate: 1200,
+            difficulty: 1,
+            waxEffect: false,
+            waxTimer: 0,
+            keys: {},
+            lastChompTime: 0,
+            audioReady: false
+        };
+
+        // Sound Effects
+        const sounds = {
+            chomp: null,
+            golden: null,
+            powerup: null,
+            miss: null,
+            wax: null,
+            gameOver: null,
+            start: null
+        };
+
+        function initSounds() {
+            if (game.audioReady) return;
+            
+            const chompSynth = new Tone.Synth({
+                oscillator: { type: 'square' },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            
+            const noiseSynth = new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
+            }).toDestination();
+            
+            sounds.chomp = () => {
+                chompSynth.triggerAttackRelease('C3', '16n');
+                setTimeout(() => chompSynth.triggerAttackRelease('G2', '16n'), 50);
+            };
+            
+            sounds.golden = () => {
+                const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                synth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '8n');
+            };
+            
+            sounds.powerup = () => {
+                const synth = new Tone.Synth().toDestination();
+                synth.triggerAttackRelease('C4', '32n');
+                setTimeout(() => synth.triggerAttackRelease('E4', '32n'), 80);
+                setTimeout(() => synth.triggerAttackRelease('G4', '32n'), 160);
+            };
+            
+            sounds.miss = () => {
+                noiseSynth.triggerAttackRelease('16n');
+                const synth = new Tone.Synth().toDestination();
+                synth.triggerAttackRelease('C2', '8n');
+            };
+            
+            sounds.wax = () => {
+                const synth = new Tone.MembraneSynth().toDestination();
+                synth.triggerAttackRelease('C1', '8n');
+            };
+            
+            sounds.gameOver = () => {
+                const synth = new Tone.Synth().toDestination();
+                synth.triggerAttackRelease('G3', '16n');
+                setTimeout(() => synth.triggerAttackRelease('E3', '16n'), 200);
+                setTimeout(() => synth.triggerAttackRelease('C3', '4n'), 400);
+            };
+            
+            game.audioReady = true;
+        }
+
+        // Initialize Game
+        function init() {
+            game.canvas = document.getElementById('gameCanvas');
+            game.ctx = game.canvas.getContext('2d');
+            resizeCanvas();
+            
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Keyboard controls
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') game.keys.left = true;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') game.keys.right = true;
+                if (e.key === ' ') e.preventDefault();
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') game.keys.left = false;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') game.keys.right = false;
+            });
+            
+            // Touch controls
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            
+            leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); game.keys.left = true; });
+            leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); game.keys.left = false; });
+            leftBtn.addEventListener('mousedown', () => game.keys.left = true);
+            leftBtn.addEventListener('mouseup', () => game.keys.left = false);
+            leftBtn.addEventListener('mouseleave', () => game.keys.left = false);
+            
+            rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); game.keys.right = true; });
+            rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); game.keys.right = false; });
+            rightBtn.addEventListener('mousedown', () => game.keys.right = true);
+            rightBtn.addEventListener('mouseup', () => game.keys.right = false);
+            rightBtn.addEventListener('mouseleave', () => game.keys.right = false);
+            
+            // Mouse/touch drag
+            let isDragging = false;
+            game.canvas.addEventListener('mousedown', (e) => { isDragging = true; updatePlayerFromMouse(e); });
+            game.canvas.addEventListener('mousemove', (e) => { if (isDragging) updatePlayerFromMouse(e); });
+            game.canvas.addEventListener('mouseup', () => isDragging = false);
+            game.canvas.addEventListener('touchstart', (e) => { isDragging = true; updatePlayerFromTouch(e); });
+            game.canvas.addEventListener('touchmove', (e) => { if (isDragging) updatePlayerFromTouch(e); });
+            game.canvas.addEventListener('touchend', () => isDragging = false);
+            
+            // Start/Restart buttons
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('restartBtn').addEventListener('click', startGame);
+            
+            gameLoop();
+        }
+
+        function resizeCanvas() {
+            game.canvas.width = window.innerWidth;
+            game.canvas.height = window.innerHeight;
+            game.playerX = game.canvas.width / 2;
+        }
+
+        function updatePlayerFromMouse(e) {
+            const rect = game.canvas.getBoundingClientRect();
+            game.playerX = e.clientX - rect.left;
+        }
+
+        function updatePlayerFromTouch(e) {
+            e.preventDefault();
+            const rect = game.canvas.getBoundingClientRect();
+            game.playerX = e.touches[0].clientX - rect.left;
+        }
+
+        function startGame() {
+            Tone.start();
+            initSounds();
+            if (sounds.powerup) sounds.powerup();
+            
+            game.running = true;
+            game.score = 0;
+            game.lives = 3;
+            game.level = 1;
+            game.difficulty = 1;
+            game.items = [];
+            game.particles = [];
+            game.waxEffect = false;
+            game.waxTimer = 0;
+            game.spawnRate = 1200;
+            game.playerSpeed = game.basePlayerSpeed;
+            
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('waxIndicator').classList.add('hidden');
+            
+            updateHUD();
+            updateLives();
+        }
+
+        function gameOver() {
+            game.running = false;
+            if (sounds.gameOver) sounds.gameOver();
+            
+            document.getElementById('finalScore').textContent = game.score;
+            document.getElementById('finalLevel').textContent = game.level;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        function updateHUD() {
+            document.getElementById('score').textContent = game.score;
+            document.getElementById('level').textContent = game.level;
+        }
+
+        function updateLives() {
+            const livesEl = document.getElementById('lives');
+            livesEl.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const span = document.createElement('span');
+                span.className = 'text-2xl md:text-3xl';
+                span.textContent = i < game.lives ? '❌' : '⭕';
+                livesEl.appendChild(span);
+            }
+        }
+
+        // Item Types
+        const ITEM_TYPES = {
+            AIRPOD: { size: 25, points: 1, speed: 2, emoji: '🎧', color: '#FFFFFF' },
+            GOLDEN: { size: 30, points: 10, speed: 2.5, emoji: '✨', color: '#FFD700' },
+            CASE: { size: 35, points: 0, speed: 1.8, emoji: '📦', color: '#4169E1' },
+            WAX: { size: 28, points: 0, speed: 2.2, emoji: '🟡', color: '#FFD700' }
+        };
+
+        function spawnItem() {
+            const rand = Math.random();
+            let type;
+            
+            if (rand < 0.70) type = ITEM_TYPES.AIRPOD;
+            else if (rand < 0.80) type = ITEM_TYPES.GOLDEN;
+            else if (rand < 0.90) type = ITEM_TYPES.CASE;
+            else type = ITEM_TYPES.WAX;
+            
+            const item = {
+                x: Math.random() * (game.canvas.width - 60) + 30,
+                y: -50,
+                vx: (Math.random() - 0.5) * 2,
+                vy: type.speed + Math.random() * game.difficulty,
+                rotation: Math.random() * 360,
+                rotSpeed: (Math.random() - 0.5) * 5,
+                type: type,
+                collected: false
+            };
+            
+            game.items.push(item);
+        }
+
+        function updatePlayer() {
+            const playerEl = document.getElementById('player');
+            const playerWidth = window.innerWidth < 768 ? 100 : 140;
+            
+            if (game.keys.left) game.playerX -= game.playerSpeed;
+            if (game.keys.right) game.playerX += game.playerSpeed;
+            
+            game.playerX = Math.max(playerWidth / 2, Math.min(game.canvas.width - playerWidth / 2, game.playerX));
+            playerEl.style.left = game.playerX + 'px';
+            
+            // Wax effect timer
+            if (game.waxEffect) {
+                game.waxTimer--;
+                if (game.waxTimer <= 0) {
+                    game.waxEffect = false;
+                    game.playerSpeed = game.basePlayerSpeed;
+                    document.getElementById('waxIndicator').classList.add('hidden');
+                }
+            }
+        }
+
+        function chompAnimation() {
+            const mouth = document.getElementById('mouth');
+            mouth.classList.remove('mouth-open');
+            mouth.classList.add('mouth-closed');
+            setTimeout(() => {
+                mouth.classList.remove('mouth-closed');
+                mouth.classList.add('mouth-open');
+            }, 100);
+        }
+
+        function updateItems() {
+            const playerWidth = window.innerWidth < 768 ? 100 : 140;
+            const playerHeight = window.innerWidth < 768 ? 80 : 100;
+            const mouthY = game.canvas.height - 80;
+            
+            for (let i = game.items.length - 1; i >= 0; i--) {
+                const item = game.items[i];
+                
+                item.y += item.vy;
+                item.x += item.vx;
+                item.rotation += item.rotSpeed;
+                
+                // Bounce off walls
+                if (item.x <= item.type.size || item.x >= game.canvas.width - item.type.size) {
+                    item.vx *= -1;
+                }
+                
+                // Check collision with mouth
+                const dx = item.x - game.playerX;
+                const dy = item.y - mouthY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < playerWidth / 2 && item.y > mouthY - playerHeight / 2 && item.y < mouthY + playerHeight / 2) {
+                    // Collected!
+                    if (Date.now() - game.lastChompTime > 100) {
+                        chompAnimation();
+                        game.lastChompTime = Date.now();
+                    }
+                    
+                    if (item.type === ITEM_TYPES.CASE) {
+                        // Clear all items
+                        if (sounds.powerup) sounds.powerup();
+                        for (let j = 0; j < game.items.length; j++) {
+                            if (i !== j && !game.items[j].collected) {
+                                createParticles(game.items[j].x, game.items[j].y, '#4169E1');
+                            }
+                        }
+                        game.items = game.items.filter((itm, idx) => idx === i);
+                        createParticles(item.x, item.y, '#4169E1', 30);
+                    } else if (item.type === ITEM_TYPES.WAX) {
+                        // Slow down player
+                        if (sounds.wax) sounds.wax();
+                        game.waxEffect = true;
+                        game.waxTimer = 180; // 3 seconds at 60fps
+                        game.playerSpeed = game.basePlayerSpeed * 0.4;
+                        document.getElementById('waxIndicator').classList.remove('hidden');
+                        createParticles(item.x, item.y, '#FFD700');
+                    } else if (item.type === ITEM_TYPES.GOLDEN) {
+                        if (sounds.golden) sounds.golden();
+                        game.score += item.type.points;
+                        createParticles(item.x, item.y, '#FFD700', 20);
+                        showFloatingText(item.x, item.y - 20, '+10!', '#FFD700');
+                    } else {
+                        if (sounds.chomp) sounds.chomp();
+                        game.score += item.type.points;
+                        createParticles(item.x, item.y, '#FFFFFF');
+                        showFloatingText(item.x, item.y - 20, '+1', '#4169E1');
+                    }
+                    
+                    updateHUD();
+                    
+                    // Level up every 20 points
+                    const newLevel = Math.floor(game.score / 20) + 1;
+                    if (newLevel > game.level) {
+                        game.level = newLevel;
+                        game.difficulty += 0.2;
+                        game.spawnRate = Math.max(400, game.spawnRate - 50);
+                        updateHUD();
+                        if (sounds.powerup) sounds.powerup();
+                    }
+                    
+                    game.items.splice(i, 1);
+                    continue;
+                }
+                
+                // Missed - fell off screen
+                if (item.y > game.canvas.height + 50) {
+                    if (item.type === ITEM_TYPES.AIRPOD || item.type === ITEM_TYPES.GOLDEN) {
+                        game.lives--;
+                        if (sounds.miss) sounds.miss();
+                        updateLives();
+                        document.getElementById('gameContainer').classList.add('shake');
+                        setTimeout(() => document.getElementById('gameContainer').classList.remove('shake'), 300);
+                        
+                        if (game.lives <= 0) {
+                            gameOver();
+                        }
+                    }
+                    game.items.splice(i, 1);
+                }
+            }
+        }
+
+        function createParticles(x, y, color, count = 15) {
+            for (let i = 0; i < count; i++) {
+                game.particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8 - 2,
+                    size: Math.random() * 6 + 2,
+                    color: color,
+                    life: 30,
+                    maxLife: 30
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = game.particles.length - 1; i >= 0; i--) {
+                const p = game.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life--;
+                
+                if (p.life <= 0) {
+                    game.particles.splice(i, 1);
+                }
+            }
+        }
+
+        function showFloatingText(x, y, text, color) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            div.className = 'absolute pointer-events-none font-bold text-2xl float-up z-50';
+            div.style.left = x + 'px';
+            div.style.top = y + 'px';
+            div.style.color = color;
+            div.style.textShadow = '2px 2px 4px rgba(0,0,0,0.3)';
+            document.getElementById('gameContainer').appendChild(div);
+            setTimeout(() => div.remove(), 1000);
+        }
+
+        function drawItems() {
+            game.items.forEach(item => {
+                game.ctx.save();
+                game.ctx.translate(item.x, item.y);
+                game.ctx.rotate(item.rotation * Math.PI / 180);
+                
+                if (item.type === ITEM_TYPES.GOLDEN) {
+                    game.ctx.shadowColor = '#FFD700';
+                    game.ctx.shadowBlur = 20;
+                }
+                
+                // Draw AirPod shape
+                game.ctx.fillStyle = item.type.color;
+                if (item.type === ITEM_TYPES.CASE) {
+                    // Case
+                    game.ctx.fillStyle = '#F5F5F5';
+                    game.ctx.strokeStyle = '#4169E1';
+                    game.ctx.lineWidth = 3;
+                    const w = 35, h = 30;
+                    game.ctx.beginPath();
+                    game.ctx.roundRect(-w/2, -h/2, w, h, 8);
+                    game.ctx.fill();
+                    game.ctx.stroke();
+                    game.ctx.fillStyle = '#4169E1';
+                    game.ctx.beginPath();
+                    game.ctx.roundRect(-w/2, -h/2, w, h/3, 8);
+                    game.ctx.fill();
+                } else if (item.type === ITEM_TYPES.WAX) {
+                    // Wax blob
+                    game.ctx.fillStyle = '#FFD700';
+                    game.ctx.strokeStyle = '#FFA500';
+                    game.ctx.lineWidth = 2;
+                    game.ctx.beginPath();
+                    game.ctx.arc(0, 0, item.type.size / 2, 0, Math.PI * 2);
+                    game.ctx.fill();
+                    game.ctx.stroke();
+                } else {
+                    // AirPod
+                    game.ctx.fillStyle = item.type.color;
+                    game.ctx.strokeStyle = '#E0E0E0';
+                    game.ctx.lineWidth = 2;
+                    // Head
+                    game.ctx.beginPath();
+                    game.ctx.arc(0, -10, 10, 0, Math.PI * 2);
+                    game.ctx.fill();
+                    game.ctx.stroke();
+                    // Stem
+                    game.ctx.beginPath();
+                    game.ctx.roundRect(-3, 0, 6, 20, 3);
+                    game.ctx.fill();
+                    game.ctx.stroke();
+                }
+                
+                game.ctx.restore();
+            });
+        }
+
+        function drawParticles() {
+            game.particles.forEach(p => {
+                const alpha = p.life / p.maxLife;
+                game.ctx.fillStyle = p.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+                game.ctx.beginPath();
+                game.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                game.ctx.fill();
+            });
+        }
+
+        function drawClouds() {
+            game.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            const time = Date.now() * 0.0001;
+            
+            for (let i = 0; i < 5; i++) {
+                const x = ((i * 200 + time * 100) % (game.canvas.width + 200)) - 100;
+                const y = 50 + i * 80;
+                drawCloud(x, y, 60 + i * 10);
+            }
+        }
+
+        function drawCloud(x, y, size) {
+            game.ctx.beginPath();
+            game.ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+            game.ctx.arc(x + size * 0.4, y, size * 0.4, 0, Math.PI * 2);
+            game.ctx.arc(x + size * 0.2, y - size * 0.3, size * 0.35, 0, Math.PI * 2);
+            game.ctx.fill();
+        }
+
+        function gameLoop() {
+            game.ctx.clearRect(0, 0, game.canvas.width, game.canvas.height);
+            
+            // Draw background
+            drawClouds();
+            
+            if (game.running) {
+                // Update
+                updatePlayer();
+                updateItems();
+                updateParticles();
+                
+                // Spawn items
+                const now = Date.now();
+                if (now - game.lastSpawn > game.spawnRate) {
+                    spawnItem();
+                    game.lastSpawn = now;
+                }
+                
+                // Draw
+                drawItems();
+                drawParticles();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
